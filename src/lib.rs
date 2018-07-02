@@ -145,7 +145,7 @@ impl Chip8 {
     /// (00EE) Return from a subroutine.
     fn opcode_ret(&mut self) {
         self.sp -= 1;
-        self.pc = self.stack[self.sp as usize];
+        self.pc = self.stack[self.sp];
     }
 
     /// (1nnn) Jump to location.
@@ -155,7 +155,7 @@ impl Chip8 {
 
     /// (2nnn) Call subroutine.
     fn opcode_call(&mut self) {
-        self.stack[self.sp as usize] = self.pc;
+        self.stack[self.sp] = self.pc;
         self.sp += 1;
         self.pc = self.opcode.nnn();
     }
@@ -305,13 +305,13 @@ impl Chip8 {
 
         let n: u8 = rng.gen(); // Generates a random u8 number
 
-        self.v_reg[self.opcode.x() as usize] = n & self.opcode.kk();
+        self.v_reg[self.opcode.x()] = n & self.opcode.kk();
     }
 
     /// (Dxyn) Draw an n-byte sprite.
     fn opcode_drw(&mut self) {
-        // let vx = self.v_reg[self.opcode.x() as usize];
-        // let vy = self.v_reg[self.opcode.y() as usize];
+        // let vx = self.v_reg[self.opcode.x()];
+        // let vy = self.v_reg[self.opcode.y()];
         
         let _n = self.opcode.n();
         // let i = self.i_addr as usize;
@@ -340,7 +340,7 @@ impl Chip8 {
 
     /// (Fx07) Set Vx to DT.
     fn opcode_get_dt(&mut self) {
-        self.v_reg[self.opcode.x() as usize] = self.delay_timer;
+        self.v_reg[self.opcode.x()] = self.delay_timer;
     }
 
     /// (Fx0A) Wait for a key press, store key in Vx.
@@ -350,17 +350,17 @@ impl Chip8 {
 
     /// (Fx15) Set delay timer to Vx.
     fn opcode_set_dt(&mut self) {
-        self.delay_timer = self.v_reg[self.opcode.x() as usize];
+        self.delay_timer = self.v_reg[self.opcode.x()];
     }
 
     /// (Fx18) Set sound timer to Vx.
     fn opcode_set_st(&mut self) {
-        self.sound_timer = self.v_reg[self.opcode.x() as usize];
+        self.sound_timer = self.v_reg[self.opcode.x()];
     }
     
     /// (Fx1E) I = I + Vx.
     fn opcode_add_i(&mut self) {
-        self.i_addr += self.v_reg[self.opcode.x() as usize] as usize;
+        self.i_addr += self.v_reg[self.opcode.x()] as usize;
     }
 
     // (Fx29) I = location of sprite in memory for digit Vx
@@ -386,9 +386,9 @@ impl Chip8 {
         let tens = (vx - (hundreds * 100)) / 10;
         let ones = vx - (hundreds * 100) - (tens * 10);
 
-        self.memory[(self.i_addr + 0) as usize] = hundreds;
-        self.memory[(self.i_addr + 1) as usize] = tens;
-        self.memory[(self.i_addr + 2) as usize] = ones;
+        self.memory[self.i_addr + 0] = hundreds;
+        self.memory[self.i_addr + 1] = tens;
+        self.memory[self.i_addr + 2] = ones;
     }
 
     /// (Fx55) Store V0 through Vx in memory at I.
@@ -504,8 +504,8 @@ mod tests {
         let mut c = Chip8::new();
 
         c.initialize();
-        c.memory[c.pc as usize] = 0xD6;
-        c.memory[(c.pc + 1) as usize] = 0x3E;
+        c.memory[c.pc] = 0xD6;
+        c.memory[c.pc + 1] = 0x3E;
         c.fetch_opcode();
 
         assert_eq!(c.opcode.0, 0xD63E)
