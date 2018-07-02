@@ -87,6 +87,7 @@ impl Chip8 {
         }
     }
 
+    /// Reset the emulator, load fontset into memory.
     pub fn initialize(&mut self) {
         // Reset everything
         self.opcode = Opcode(0);
@@ -107,7 +108,7 @@ impl Chip8 {
         }
     }
 
-    /// Load a program ROM into memory
+    /// Load a program ROM into memory.
     pub fn load_rom(&mut self, filename: &str) {
         let mut file = File::open(filename).unwrap();
 
@@ -115,6 +116,7 @@ impl Chip8 {
         file.read(&mut self.memory[(PROGRAM_ROM_START as usize)..]).unwrap();
     }
 
+    /// Emulate a CPU cycle.
     pub fn emulate_cycle(&mut self) {
         self.fetch_opcode();
         self.decode_opcode();
@@ -250,7 +252,7 @@ impl Chip8 {
         self.v_reg[self.opcode.x()] >>= 1;
     }
 
-    /// Subtract Vx from Vy, set VF to carry
+    /// (8xy7) Subtract Vx from Vy, set VF to carry
     fn opcode_subn(&mut self) {
         let vx = self.v_reg[self.opcode.x()];
         let vy = self.v_reg[self.opcode.y()];
@@ -363,12 +365,14 @@ impl Chip8 {
 
     // (Fx29) I = location of sprite in memory for digit Vx
     fn opcode_set_sprite(&mut self) {
-        let vx = self.v_reg[self.opcode.x()]; // Hex digit we want the sprite addr for
+        // Hex digit we want the sprite addr for
+        let vx = self.v_reg[self.opcode.x()];
 
-        // Digit sprites are 5 bytes long starting at 0x0, so we multiply to get the address.
+        // Digit sprites are 5 bytes long starting at 0x0, so we multiply to
+        // get the address.
         // 0 * 5 = 0. 1 * 5 = 5. 0xF * 5 = 75 etc.
         self.i_addr = FONTSET_START + ((vx * 5) as usize);
-    } // this one deffo needs testing
+    }
 
     /// (Fx33) Store BCD representation of Vx in I, I+1, I+2
     fn opcode_bcd_vx(&mut self) {
@@ -387,18 +391,22 @@ impl Chip8 {
         self.memory[(self.i_addr + 2) as usize] = ones;
     }
 
-    /// (Fx55)
+    /// (Fx55) Store V0 through Vx in memory at I.
     fn opcode_store_vx(&mut self) {
-        // let x = self.opcode.x();
-
-        // for i in 0..x {
-        //     self.memory[i] 
-        // }
+        let x = self.opcode.x();
+        
+        for i in 0..x+1 {
+            self.memory[self.i_addr + i] = self.v_reg[i];
+        }
     }
 
-    /// (Fx65)
+    /// (Fx65) Read memory into V0 through Vx from I.
     fn opcode_read_vx(&mut self) {
+        let x = self.opcode.x();
 
+        for i in 0..x+1 {
+            self.v_reg[i] = self.memory[self.i_addr + i];
+        }
     }
 
     // ----- End of opcodes ----- //
@@ -740,12 +748,38 @@ mod tests {
 
     #[test]
     fn opcode_store_vx() {
+        let mut c = Chip8::new();
+        c.initialize();
+
+        c.v_reg[0x0] = 0xAA;
+        c.v_reg[0x1] = 0xAB;
+        c.v_reg[0x2] = 0xBB;
         
+        c.opcode = Opcode(0xF255); // Store V0-V2 in memory at I
+        c.i_addr = 0x932;
+        c.decode_opcode();
+
+        assert_eq!(c.memory[c.i_addr + 0], 0xAA);
+        assert_eq!(c.memory[c.i_addr + 1], 0xAB);
+        assert_eq!(c.memory[c.i_addr + 2], 0xBB);
     }
 
     #[test]
     fn opcode_read_vx() {
-        
+        let mut c = Chip8::new();
+        c.initialize();
+
+        c.i_addr = 0x944;
+        c.memory[c.i_addr + 0] = 0xCC;
+        c.memory[c.i_addr + 1] = 0xCD;
+        c.memory[c.i_addr + 2] = 0xDD;
+
+        c.opcode = Opcode(0xF265); // Read V0-V2 from memory to V2
+        c.decode_opcode();
+
+        assert_eq!(c.v_reg[0x0], 0xCC);
+        assert_eq!(c.v_reg[0x1], 0xCD);
+        assert_eq!(c.v_reg[0x2], 0xDD);        
     }
 
 
