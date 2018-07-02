@@ -102,8 +102,8 @@ impl Chip8 {
         self.keypad = [0; 16];
 
         // Load fontset into memory
-        for i in FONTSET_START..80 {
-            self.memory[i as usize] = CHIP8_FONTSET[i as usize];
+        for (i, byte) in CHIP8_FONTSET.iter().enumerate() {
+            self.memory[FONTSET_START + i] = *byte;
         }
     }
 
@@ -481,7 +481,14 @@ mod tests {
         let mut c = Chip8::new();
 
         c.initialize();
+        
         assert_eq!(c.pc, 0x200);
+
+        // make sure fontset was loaded
+        assert_eq!(c.memory[FONTSET_START + 0], 0xF0);
+        assert_eq!(c.memory[FONTSET_START + 1], 0x90);
+        assert_eq!(c.memory[FONTSET_START + 65], 0xE0);
+        assert_eq!(c.memory[FONTSET_START + 79], 0x80);
     }
 
     #[test]
@@ -565,7 +572,7 @@ mod tests {
         c.decode_opcode();
 
         assert_eq!(c.sp, 2);
-        assert_eq!(c.stack[1], c.pc);
+        assert_eq!(c.stack[1], 0x51);
         assert_eq!(c.pc, 0x666);
     }
 
@@ -704,6 +711,7 @@ mod tests {
         let mut c = Chip8::new();
         c.initialize();
 
+        c.v_reg[0xA] = 0xA;
         c.opcode = Opcode(0xFA29); // A = get the sprite for 0xA
         c.decode_opcode();
 
