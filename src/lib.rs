@@ -10,8 +10,11 @@ use rand::prelude::*;
 // some proper numeric conversions in the future.
 
 const PROGRAM_ROM_START: usize = 0x200; // Programs start at 0x200
-const DISPLAY_SIZE: usize = 64 * 32;
 const FONTSET_START: usize = 0x000; // Where the fontset starts
+
+const DISPLAY_COLS: usize = 64;
+const DISPLAY_ROWS: usize = 32;
+const DISPLAY_SIZE: usize = DISPLAY_ROWS * DISPLAY_COLS;
 
 #[derive(Debug)]
 struct Opcode(u16);
@@ -33,7 +36,7 @@ impl Opcode {
     fn kk(&self) -> u8 { (self.0 & 0x00FF) as u8 } // u8
     
     // Used for opcode Dxyn
-    fn n(&self) -> u8 { (self.0 & 0x000F) as u8 } // u4
+    fn n(&self) -> usize { (self.0 & 0x000F) as usize } // u4
 }
 
 #[allow(dead_code)]
@@ -308,24 +311,46 @@ impl Chip8 {
         self.v_reg[self.opcode.x()] = n & self.opcode.kk();
     }
 
-    /// (Dxyn) Draw an n-byte sprite.
+    /// (Dxyn) Draw an n-byte sprite at (Vx, Vy) from memory location I
     fn opcode_drw(&mut self) {
-        // let vx = self.v_reg[self.opcode.x()];
-        // let vy = self.v_reg[self.opcode.y()];
+        let x = self.v_reg[self.opcode.x()] as usize;
+        let y = self.v_reg[self.opcode.y()] as usize;
+        let n = self.opcode.n(); // Sprite height
         
-        let _n = self.opcode.n();
-        // let i = self.i_addr as usize;
+        // The pixel where we start drawing from
+        let starting_pixel = x + (y * DISPLAY_COLS);
 
-        // let sprite: &[u8] = self.memory[i..(i+n)];
+        // Set collision flag off, we'll turn it on if we get a collision
+        // at any point while drawing.
+        self.v_reg[0xF] = 0;
 
-        // for (i, byte) in sprite.iter().enumerate() {
-        //     // gets the first bit
-        //     let index = self.display[Vx+(Vy * 64)+(i * 8)];
+        // For each row in the sprite...
+        for row_number in 0..n as usize {
+            // The actual pixels of this row for the sprite
+            let sprite_row: u8 = self.memory[self.i_addr + row_number];
 
-        //     for i in 0..8 {
-                
-        //     }
-        // }
+            // For each pixel in the sprite row...
+            for pixel_number in 0..8 as usize {
+                // We use masking to go through each bit in the row
+                let sprite_pixel = if (sprite_row & (0x80 >> pixel_number)) == 0 { 0 } else { 1 };
+
+                // The pixel we are about to write to
+                let mut target_pixel = starting_pixel + (row_number * DISPLAY_COLS) + pixel_number;
+
+                // Check collision
+                if self.display[target_pixel] == 1 {
+                    self.v_reg[0xF] = 1;
+                }
+
+                // Handle overflow by wrapping to the start of the row
+                if (starting_pixel + pixel_number) >= DISPLAY_COLS {
+                    target_pixel -= DISPLAY_COLS;
+                }
+
+                // Set the pixel with XOR
+                self.display[target_pixel] ^= sprite_pixel;
+            }
+        }
     }
 
     /// (Ex9E) Skip next instruction if key with value Vx pressed.
@@ -676,7 +701,32 @@ mod tests {
 
     #[test]
     fn opcode_drw() {
-        
+        let mut c = Chip8::new();
+        c.initialize();
+
+        // coordinates: (63, 0) i.e. upper right corner of screen
+        c.v_reg[0] = 63;
+        c.v_reg[1] = 0;
+
+        // Put a 2x2 cube at 0x755 in memory
+        c.i_addr = 0x755;
+        c.memory[c.i_addr] = 0xC0;
+        c.memory[c.i_addr + 1] = 0xC0;
+
+        // Turn the last pixel on row 0 on so we can test that it's turned off
+        c.display[DISPLAY_COLS - 1] = 1;
+
+         // Draw 2-byte sprite at V0 and V1 (set above)
+        c.opcode = Opcode(0xD012);
+
+        c.decode_opcode();
+
+        assert_eq!(c.display[DISPLAY_COLS - 1], 0, "pixel wasn't zeroed");
+        assert_eq!(c.display[(DISPLAY_COLS * 2) - 1], 1);
+        assert_eq!(c.v_reg[0xF], 1, "carry bit should be set by collision");
+        // wrapping
+        assert_eq!(c.display[0], 1, "sprite should wrap");
+        assert_eq!(c.display[DISPLAY_COLS], 1, "sprite should wrap ");
     }
 
     #[test]
