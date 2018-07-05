@@ -355,12 +355,16 @@ impl Chip8 {
 
     /// (Ex9E) Skip next instruction if key with value Vx pressed.
     fn opcode_skp(&mut self) {
-
+        if self.keypad[self.opcode.x()] == 1 {
+            self.pc += 2;
+        }
     }
 
     /// (ExA1) Skip next instruction if key with value Vx not pressed.
     fn opcode_sknp(&mut self) {
-
+        if self.keypad[self.opcode.x()] == 0 {
+            self.pc += 2;
+        }
     }
 
     /// (Fx07) Set Vx to DT.
@@ -731,12 +735,32 @@ mod tests {
 
     #[test]
     fn opcode_skp() {
-        
+        let mut c = Chip8::new();
+        c.initialize();
+
+        c.keypad[0xA] = 1; // A is pressed
+        c.opcode = Opcode(0xEA9E); // check if a is pressed
+
+        let old_pc = c.pc;
+
+        c.decode_opcode();
+
+        assert_eq!(c.pc, old_pc + 2);
     }
 
     #[test]
     fn opcode_sknp() {
-        
+        let mut c = Chip8::new();
+        c.initialize();
+
+        c.keypad[0xA] = 0; // A is not pressed
+        c.opcode = Opcode(0xEAA1); // check if a is NOT pressed
+
+        let old_pc = c.pc;
+
+        c.decode_opcode();
+
+        assert_eq!(c.pc, old_pc + 2);
     }
 
     #[test]
