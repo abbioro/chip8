@@ -12,9 +12,9 @@ use std::io::Read;
 const PROGRAM_ROM_START: usize = 0x200; // Programs start at 0x200
 const FONTSET_START: usize = 0x000; // Where the fontset starts
 
-const DISPLAY_COLS: usize = 64;
-const DISPLAY_ROWS: usize = 32;
-const DISPLAY_SIZE: usize = DISPLAY_ROWS * DISPLAY_COLS;
+const DISPLAY_WIDTH: usize = 64;
+const DISPLAY_HEIGHT: usize = 32;
+const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH;
 
 #[derive(Debug)]
 struct Opcode(u16);
@@ -52,16 +52,16 @@ impl Opcode {
 #[allow(dead_code)]
 pub struct Chip8 {
     opcode: Opcode, // current opcode
-    memory: [u8; 4096],
-    v_reg: [u8; 16], // registers
-    i_addr: usize,   // u16, address register
-    pc: usize,       // u16, program counter
-    display: [u8; DISPLAY_SIZE],
-    stack: [usize; 16], // u16
-    sp: usize,          // u8, stack pointer
-    delay_timer: u8,
-    sound_timer: u8,
-    keypad: [u8; 16],
+    pub memory: [u8; 4096],
+    pub v_reg: [u8; 16], // registers
+    pub i_addr: usize,   // u16, address register
+    pub pc: usize,       // u16, program counter
+    pub display: [u8; DISPLAY_SIZE],
+    pub stack: [usize; 16], // u16
+    pub sp: usize,          // u8, stack pointer
+    pub delay_timer: u8,
+    pub sound_timer: u8,
+    pub keypad: [u8; 16],
 }
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
@@ -331,7 +331,7 @@ impl Chip8 {
         let n = self.opcode.n(); // Sprite height
 
         // The pixel where we start drawing from
-        let starting_pixel = x + (y * DISPLAY_COLS);
+        let starting_pixel = x + (y * DISPLAY_WIDTH);
 
         // Set collision flag off, we'll turn it on if we get a collision
         // at any point while drawing.
@@ -352,7 +352,7 @@ impl Chip8 {
                 };
 
                 // The pixel we are about to write to
-                let mut target_pixel = starting_pixel + (row_number * DISPLAY_COLS) + pixel_number;
+                let mut target_pixel = starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
 
                 // Check collision
                 if self.display[target_pixel] == 1 {
@@ -360,8 +360,8 @@ impl Chip8 {
                 }
 
                 // Handle overflow by wrapping to the start of the row
-                if (starting_pixel + pixel_number) >= DISPLAY_COLS {
-                    target_pixel -= DISPLAY_COLS;
+                if (starting_pixel + pixel_number) >= DISPLAY_WIDTH {
+                    target_pixel -= DISPLAY_WIDTH;
                 }
 
                 // Set the pixel with XOR
@@ -697,19 +697,19 @@ mod tests {
         c.memory[c.i_addr + 1] = 0xC0;
 
         // Turn the last pixel on row 0 on so we can test that it's turned off
-        c.display[DISPLAY_COLS - 1] = 1;
+        c.display[DISPLAY_WIDTH - 1] = 1;
 
         // Draw 2-byte sprite at V0 and V1 (set above)
         c.opcode = Opcode(0xD012);
 
         c.decode_opcode();
 
-        assert_eq!(c.display[DISPLAY_COLS - 1], 0, "pixel wasn't zeroed");
-        assert_eq!(c.display[(DISPLAY_COLS * 2) - 1], 1);
+        assert_eq!(c.display[DISPLAY_WIDTH - 1], 0, "pixel wasn't zeroed");
+        assert_eq!(c.display[(DISPLAY_WIDTH * 2) - 1], 1);
         assert_eq!(c.v_reg[0xF], 1, "carry bit should be set by collision");
         // wrapping
         assert_eq!(c.display[0], 1, "sprite should wrap");
-        assert_eq!(c.display[DISPLAY_COLS], 1, "sprite should wrap ");
+        assert_eq!(c.display[DISPLAY_WIDTH], 1, "sprite should wrap ");
     }
 
     #[test]
