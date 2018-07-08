@@ -12,9 +12,9 @@ use std::io::Read;
 const PROGRAM_ROM_START: usize = 0x200; // Programs start at 0x200
 const FONTSET_START: usize = 0x000; // Where the fontset starts
 
-const DISPLAY_WIDTH: usize = 64;
-const DISPLAY_HEIGHT: usize = 32;
-const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH;
+pub const DISPLAY_WIDTH: usize = 64;
+pub const DISPLAY_HEIGHT: usize = 32;
+pub const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH;
 
 #[derive(Debug)]
 struct Opcode(u16);
