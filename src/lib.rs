@@ -330,7 +330,6 @@ impl Chip8 {
     /// Set address register to NNN
     fn opcode_ld(&mut self) {
         self.i_addr = self.opcode.nnn();
-        self.pc += 2;
     }
 
     /// Jump to NNN + V0
@@ -633,7 +632,7 @@ mod tests {
         c.opcode = 0x1666;
         c.decode_opcode();
 
-        assert_eq!(c.pc, 0x666);
+        assert_eq!(c.pc, 0x664);
     }
 
     #[test]
