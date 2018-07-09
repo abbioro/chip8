@@ -388,10 +388,9 @@ impl Chip8 {
     /// Generate random byte AND kk, store in Vx
     fn opcode_rnd(&mut self) {
         let mut rng = thread_rng();
+        let random_num: u8 = rng.gen(); // Generates a random u8 number
 
-        let n: u8 = rng.gen(); // Generates a random u8 number
-
-        self.v_reg[self.opcode.x()] = n & self.opcode.kk();
+        self.v_reg[self.opcode.x()] = random_num & self.opcode.kk();
         self.pc += 2;
     }
 
@@ -466,6 +465,7 @@ impl Chip8 {
 
     /// (Fx0A) Wait for a key press, store key in Vx.
     fn opcode_waitkey(&mut self) {
+        // TODO: Implement blocking
         self.pc += 2;
     }
 
@@ -527,11 +527,11 @@ impl Chip8 {
         self.pc += 2;
     }
 
-    /// (Fx65) Read memory into V0 through Vx from I.
+    /// (Fx65) Fill [V0..Vx] from I.
     fn opcode_read_vx(&mut self) {
         let x = self.opcode.x();
 
-        for i in 0..x + 1 {
+        for i in 0..=x {
             self.v_reg[i] = self.memory[self.i_addr + i];
         }
         self.pc += 2;
