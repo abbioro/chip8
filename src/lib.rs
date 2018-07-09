@@ -17,42 +17,26 @@ pub const DISPLAY_HEIGHT: usize = 32;
 /// Using RGB24 pixel format so each pixel is 3 bytes
 pub const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH * 3;
 
-#[derive(Debug)]
-struct Opcode(u16);
+/// Methods to decode opcode arguments.
+trait Opcode {
+    fn x(&self) -> usize;
+    fn y(&self) -> usize;
+    fn n(&self) -> usize;
+    fn kk(&self) -> u8;
+    fn nnn(&self) -> usize;
+}
 
-/// Methods to extract various parts of the opcode using bit masking.
-/// The original types are mentioned, but we only use Rust types
-/// for convenience.
-impl Opcode {
-    // In practice x and y will always be cast to usize before using since
-    // they are used as array indices for registers.
-    fn x(&self) -> usize {
-        ((self.0 & 0x0F00) >> 8) as usize
-    }
-    fn y(&self) -> usize {
-        ((self.0 & 0x00F0) >> 4) as usize
-    }
-
-    // NNN denotes an address in memory, in practice only 12 bits since
-    // the first nibble isn't part of the address.
-    fn nnn(&self) -> usize {
-        (self.0 & 0x0FFF) as usize
-    }
-
-    // KK is just a byte, used to compare registers to arbitrary bytes
-    fn kk(&self) -> u8 {
-        (self.0 & 0x00FF) as u8
-    }
-
-    // Used for opcode Dxyn
-    fn n(&self) -> usize {
-        (self.0 & 0x000F) as usize
-    }
+impl Opcode for u16 {
+    fn x(&self) -> usize { ((self & 0x0F00) >> 8) as usize }
+    fn y(&self) -> usize { ((self & 0x00F0) >> 4) as usize }
+    fn n(&self) -> usize { (self & 0x000F) as usize }
+    fn kk(&self) -> u8 { (self & 0x00FF) as u8 }
+    fn nnn(&self) -> usize { (self & 0x0FFF) as usize }
 }
 
 #[allow(dead_code)]
 pub struct Chip8 {
-    opcode: Opcode, // current opcode
+    pub opcode: u16, // current opcode
     pub memory: [u8; 4096],
     pub v_reg: [u8; 16], // registers
     pub i_addr: usize,   // u16, address register
@@ -88,7 +72,7 @@ const CHIP8_FONTSET: [u8; 80] = [
 impl Chip8 {
     pub fn new() -> Chip8 {
         Chip8 {
-            opcode: Opcode(0),
+            opcode: 0,
             memory: [0; 4096],
             v_reg: [0; 16],
             i_addr: 0,
@@ -105,7 +89,7 @@ impl Chip8 {
     /// Reset the emulator, load fontset into memory.
     pub fn initialize(&mut self) {
         // Reset everything
-        self.opcode = Opcode(0);
+        self.opcode = 0;
         self.memory = [0; 4096];
         self.v_reg = [0; 16];
         self.i_addr = 0;
@@ -186,7 +170,7 @@ impl Chip8 {
         let byte2 = self.memory[pc + 1] as u16;
 
         // Merge the 2-byte instruction at the program counter
-        self.opcode = Opcode(byte1 << 8 | byte2);
+        self.opcode = byte1 << 8 | byte2;
     }
 
     // Vx = Register X
@@ -205,7 +189,8 @@ impl Chip8 {
 
     /// (1nnn) Jump to location.
     fn opcode_jp(&mut self) {
-        self.pc = self.opcode.nnn();
+        // Subtract 2 here since PC will be incremented next
+        self.pc = self.opcode.nnn() - 2;
     }
 
     /// (2nnn) Call subroutine.
@@ -243,7 +228,7 @@ impl Chip8 {
 
     /// (7xkk) Add kk to Vx.
     fn opcode_add_byte(&mut self) {
-        self.v_reg[self.opcode.x()] += self.opcode.kk();
+        self.v_reg[self.opcode.x()] = self.v_reg[self.opcode.x()].wrapping_add(self.opcode.kk());
     }
 
     /// (8xy0) Set Vx to Vy.
@@ -495,11 +480,11 @@ impl Chip8 {
     // ----- End of opcodes ----- //
 
     fn decode_opcode(&mut self) {
-        match self.opcode.0 & 0xF000 {
-            0x0000 => match self.opcode.0 & 0x00FF {
+        match self.opcode & 0xF000 {
+            0x0000 => match self.opcode & 0x00FF {
                 0x00E0 => self.opcode_cls(),
                 0x00EE => self.opcode_ret(),
-                _ => panic!("unknown opcode {}", self.opcode.0),
+                _ => panic!("unknown opcode {}", self.opcode),
             },
 
             0x1000 => self.opcode_jp(),
@@ -510,7 +495,7 @@ impl Chip8 {
             0x6000 => self.opcode_ld_byte(),
             0x7000 => self.opcode_add_byte(),
 
-            0x8000 => match self.opcode.0 & 0x000F {
+            0x8000 => match self.opcode & 0x000F {
                 0x0000 => self.opcode_ld_vy(),
                 0x0001 => self.opcode_or(),
                 0x0002 => self.opcode_and(),
@@ -520,7 +505,7 @@ impl Chip8 {
                 0x0006 => self.opcode_shr(),
                 0x0007 => self.opcode_subn(),
                 0x000E => self.opcode_shl(),
-                _ => panic!("unknown opcode {}", self.opcode.0),
+                _ => panic!("unknown opcode {}", self.opcode),
             },
 
             0x9000 => self.opcode_sne(),
@@ -529,13 +514,13 @@ impl Chip8 {
             0xC000 => self.opcode_rnd(),
             0xD000 => self.opcode_drw(),
 
-            0xE000 => match self.opcode.0 & 0xF0FF {
+            0xE000 => match self.opcode & 0xF0FF {
                 0xE09E => self.opcode_skp(),
                 0xE0A1 => self.opcode_sknp(),
-                _ => panic!("unknown opcode {}", self.opcode.0),
+                _ => panic!("unknown opcode {}", self.opcode),
             },
 
-            0xF000 => match self.opcode.0 & 0xF0FF {
+            0xF000 => match self.opcode & 0xF0FF {
                 0xF007 => self.opcode_get_dt(),
                 0xF00A => self.opcode_waitkey(),
                 0xF015 => self.opcode_set_dt(),
@@ -545,10 +530,10 @@ impl Chip8 {
                 0xF033 => self.opcode_bcd_vx(),
                 0xF055 => self.opcode_store_vx(),
                 0xF065 => self.opcode_read_vx(),
-                _ => panic!("unknown opcode {}", self.opcode.0),
+                _ => panic!("unknown opcode {}", self.opcode),
             },
 
-            _ => panic!("unknown opcode {}", self.opcode.0),
+            _ => panic!("unknown opcode {}", self.opcode),
         }
     }
 
@@ -591,7 +576,7 @@ mod tests {
         c.memory[c.pc + 1] = 0x3E;
         c.fetch_opcode();
 
-        assert_eq!(c.opcode.0, 0xD63E)
+        assert_eq!(c.opcode, 0xD63E)
     }
 
     #[test]
@@ -619,7 +604,7 @@ mod tests {
 
         c.display[0] = 1;
         c.display[DISPLAY_SIZE - 1] = 1;
-        c.opcode = Opcode(0x00E0);
+        c.opcode = 0x00E0;
         c.decode_opcode();
 
         assert_eq!(c.display[0], 0);
@@ -633,7 +618,7 @@ mod tests {
 
         c.stack[0] = 21;
         c.sp = 1;
-        c.opcode = Opcode(0x00EE);
+        c.opcode = 0x00EE;
         c.decode_opcode();
 
         assert_eq!(c.pc, c.stack[0]);
@@ -645,7 +630,7 @@ mod tests {
         let mut c = Chip8::new();
         c.initialize();
 
-        c.opcode = Opcode(0x1666);
+        c.opcode = 0x1666;
         c.decode_opcode();
 
         assert_eq!(c.pc, 0x666);
@@ -656,7 +641,7 @@ mod tests {
         let mut c = Chip8::new();
         c.initialize();
 
-        c.opcode = Opcode(0x2666);
+        c.opcode = 0x2666;
         c.pc = 0x51;
         c.sp = 1;
         c.stack[0] = 0x21;
@@ -739,7 +724,7 @@ mod tests {
         c.set_pixel(DISPLAY_WIDTH - 1, 1);
 
         // Draw 2-byte sprite at V0 and V1 (set above)
-        c.opcode = Opcode(0xD012);
+        c.opcode = 0xD012;
 
         c.decode_opcode();
 
@@ -757,7 +742,7 @@ mod tests {
         c.initialize();
 
         c.keypad[0xA] = 1; // A is pressed
-        c.opcode = Opcode(0xEA9E); // check if a is pressed
+        c.opcode = 0xEA9E; // check if a is pressed
 
         let old_pc = c.pc;
 
@@ -772,7 +757,7 @@ mod tests {
         c.initialize();
 
         c.keypad[0xA] = 0; // A is not pressed
-        c.opcode = Opcode(0xEAA1); // check if a is NOT pressed
+        c.opcode = 0xEAA1; // check if a is NOT pressed
 
         let old_pc = c.pc;
 
@@ -802,7 +787,7 @@ mod tests {
         c.initialize();
 
         c.v_reg[0xA] = 0xA;
-        c.opcode = Opcode(0xFA29); // A = get the sprite for 0xA
+        c.opcode = 0xFA29; // A = get the sprite for 0xA
         c.decode_opcode();
 
         // Check to see that memory[I] holds the sprite for 0xA
@@ -820,7 +805,7 @@ mod tests {
 
         c.v_reg[0x2] = 235;
 
-        c.opcode = Opcode(0xF233); // Store BCD of V[2]
+        c.opcode = 0xF233; // Store BCD of V[2]
         c.decode_opcode();
 
         assert_eq!(c.memory[c.i_addr + 0], 2);
@@ -837,7 +822,7 @@ mod tests {
         c.v_reg[0x1] = 0xAB;
         c.v_reg[0x2] = 0xBB;
 
-        c.opcode = Opcode(0xF255); // Store V0-V2 in memory at I
+        c.opcode = 0xF255; // Store V0-V2 in memory at I
         c.i_addr = 0x932;
         c.decode_opcode();
 
@@ -856,7 +841,7 @@ mod tests {
         c.memory[c.i_addr + 1] = 0xCD;
         c.memory[c.i_addr + 2] = 0xDD;
 
-        c.opcode = Opcode(0xF265); // Read V0-V2 from memory to V2
+        c.opcode = 0xF265; // Read V0-V2 from memory to V2
         c.decode_opcode();
 
         assert_eq!(c.v_reg[0x0], 0xCC);
