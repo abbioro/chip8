@@ -187,7 +187,7 @@ impl Chip8 {
     /// Emulate a CPU cycle.
     pub fn emulate_cycle(&mut self) {
         self.fetch_opcode();
-        println!("{:X}", self.opcode);
+        // println!("{:X}", self.opcode);
         self.decode_opcode();
         self.update_timers();
     }
@@ -317,9 +317,9 @@ impl Chip8 {
         let (result, overflow) = vx.overflowing_sub(vy);
 
         if overflow {
-            self.v_reg[0xF] = 1;
-        } else {
             self.v_reg[0xF] = 0;
+        } else {
+            self.v_reg[0xF] = 1;
         }
 
         self.v_reg[self.opcode.x()] = result;
@@ -343,9 +343,9 @@ impl Chip8 {
         let (result, overflow) = vy.overflowing_sub(vx);
 
         if overflow {
-            self.v_reg[0xF] = 1;
-        } else {
             self.v_reg[0xF] = 0;
+        } else {
+            self.v_reg[0xF] = 1;
         }
 
         self.v_reg[self.opcode.x()] = result;
