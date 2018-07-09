@@ -1,8 +1,10 @@
 extern crate rand;
+extern crate sdl2;
 
 use rand::prelude::*;
 use std::fs::File;
 use std::io::Read;
+use sdl2::keyboard::Keycode;
 
 // Rust *really* wants you to index everything with usize only, so you'll see
 // me define anything that is used as an index as usize. I could cast as
@@ -151,6 +153,34 @@ impl Chip8 {
             self.set_pixel(pixel_index, 0);
         } else {
             self.set_pixel(pixel_index, 1);
+        }
+    }
+
+    /// Update keypad to reflect keypress.
+    pub fn handle_keypress(&mut self, key: Keycode, state: bool) {
+        let state_bit = state as u8;
+        match key {
+            Keycode::Num1 => self.keypad[0x1] = state_bit,
+            Keycode::Num2 => self.keypad[0x2] = state_bit,
+            Keycode::Num3 => self.keypad[0x3] = state_bit,
+            Keycode::Num4 => self.keypad[0xC] = state_bit,
+            
+            Keycode::Q => self.keypad[0x4] = state_bit,
+            Keycode::W => self.keypad[0x5] = state_bit,
+            Keycode::E => self.keypad[0x6] = state_bit,
+            Keycode::R => self.keypad[0xD] = state_bit,
+
+            Keycode::A => self.keypad[0x7] = state_bit,
+            Keycode::S => self.keypad[0x8] = state_bit,
+            Keycode::D => self.keypad[0x9] = state_bit,
+            Keycode::F => self.keypad[0xE] = state_bit,
+            
+            Keycode::Z => self.keypad[0xA] = state_bit,
+            Keycode::X => self.keypad[0x0] = state_bit,
+            Keycode::C => self.keypad[0xB] = state_bit,
+            Keycode::V => self.keypad[0xF] = state_bit,
+            
+            _ => {}
         }
     }
 

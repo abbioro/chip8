@@ -61,13 +61,10 @@ fn main() {
     'main_loop: loop {
         for event in event_pump.poll_iter() {
             match event {
-                // Quit if the user quits or presses ESC
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'main_loop,
-
+                Event::Quit { .. } => break 'main_loop,
+                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => break 'main_loop,
+                Event::KeyDown { keycode: Some(key), .. } => emulator.handle_keypress(key, true),
+                Event::KeyUp { keycode: Some(key), .. } => emulator.handle_keypress(key, false),
                 _ => {}
             }
         }
@@ -89,6 +86,6 @@ fn main() {
         canvas.present();
 
         // TODO: sync at known pace. vsync is too fast
-        thread::sleep(time::Duration::from_millis(100));
+        thread::sleep(time::Duration::from_millis(10));
     }
 }
