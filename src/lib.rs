@@ -16,7 +16,7 @@ const FONTSET_START: usize = 0x000; // Where the fontset starts
 
 pub const DISPLAY_WIDTH: usize = 64;
 pub const DISPLAY_HEIGHT: usize = 32;
-/// Using RGB24 pixel format so each pixel is 3 bytes
+/// The true size of the display in memory (RGB24 pixel format).
 pub const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH * 3;
 
 /// Methods to decode opcode arguments.
@@ -187,8 +187,8 @@ impl Chip8 {
     /// Emulate a CPU cycle.
     pub fn emulate_cycle(&mut self) {
         self.fetch_opcode();
+        println!("{:X}", self.opcode);
         self.decode_opcode();
-        self.pc += 2;
         self.update_timers();
     }
 
@@ -200,7 +200,7 @@ impl Chip8 {
         let byte2 = self.memory[pc + 1] as u16;
 
         // Merge the 2-byte instruction at the program counter
-        self.opcode = byte1 << 8 | byte2;
+        self.opcode = (byte1 << 8) | byte2;
     }
 
     // Vx = Register X
@@ -209,18 +209,19 @@ impl Chip8 {
     /// (00E0) Clear the display.
     fn opcode_cls(&mut self) {
         self.display = [0; DISPLAY_SIZE];
+        self.pc += 2;
     }
 
     /// (00EE) Return from a subroutine.
     fn opcode_ret(&mut self) {
         self.sp -= 1;
         self.pc = self.stack[self.sp];
+        self.pc += 2;
     }
 
     /// (1nnn) Jump to location.
     fn opcode_jp(&mut self) {
-        // Subtract 2 here since PC will be incremented next
-        self.pc = self.opcode.nnn() - 2;
+        self.pc = self.opcode.nnn();
     }
 
     /// (2nnn) Call subroutine.
@@ -235,6 +236,7 @@ impl Chip8 {
         if self.v_reg[self.opcode.x()] == self.opcode.kk() {
             self.pc += 2;
         }
+        self.pc += 2;
     }
 
     /// (4xkk) Skip next instruction if Vx != kk.
@@ -242,6 +244,7 @@ impl Chip8 {
         if self.v_reg[self.opcode.x()] != self.opcode.kk() {
             self.pc += 2;
         }
+        self.pc += 2;
     }
 
     /// (5xy0) Skip next instruction if Vx == Vy.
@@ -249,69 +252,78 @@ impl Chip8 {
         if self.v_reg[self.opcode.x()] == self.v_reg[self.opcode.y()] {
             self.pc += 2;
         }
+        self.pc += 2;
     }
 
     /// (6xkk) Set Vx to kk.
     fn opcode_ld_byte(&mut self) {
         self.v_reg[self.opcode.x()] = self.opcode.kk();
+        self.pc += 2;
     }
 
     /// (7xkk) Add kk to Vx.
     fn opcode_add_byte(&mut self) {
         self.v_reg[self.opcode.x()] = self.v_reg[self.opcode.x()].wrapping_add(self.opcode.kk());
+        self.pc += 2;
     }
 
     /// (8xy0) Set Vx to Vy.
     fn opcode_ld_vy(&mut self) {
         self.v_reg[self.opcode.x()] = self.v_reg[self.opcode.y()];
+        self.pc += 2;
     }
 
     /// (8xy1) Bitwise OR.
     fn opcode_or(&mut self) {
         self.v_reg[self.opcode.x()] |= self.v_reg[self.opcode.y()];
+        self.pc += 2;
     }
 
     /// (8xy2) Bitwise AND.
     fn opcode_and(&mut self) {
         self.v_reg[self.opcode.x()] &= self.v_reg[self.opcode.y()];
+        self.pc += 2;
     }
 
     /// (8xy3) Bitwise XOR.
     fn opcode_xor(&mut self) {
         self.v_reg[self.opcode.x()] ^= self.v_reg[self.opcode.y()];
+        self.pc += 2;
     }
 
     /// (8xy4) Add Vy to Vx, set VF to carry.
     fn opcode_add(&mut self) {
-        let vx = self.v_reg[self.opcode.x()] as u16;
-        let vy = self.v_reg[self.opcode.y()] as u16;
-        let result = vx + vy;
+        let vx = self.v_reg[self.opcode.x()];
+        let vy = self.v_reg[self.opcode.y()];
+
+        let (result, overflow) = vx.overflowing_add(vy);
 
         // Set carry flag
-        if result > 255 {
+        if overflow {
             self.v_reg[0xF] = 1;
         } else {
             self.v_reg[0xF] = 0;
         }
 
-        // note: WILL discard data if result is greater than 255
-        self.v_reg[self.opcode.x()] = result as u8;
+        self.v_reg[self.opcode.x()] = result;
+        self.pc += 2;
     }
 
-    /// (8xy5) Subtract Vy from Vx, set VF to carry.
+    /// (8xy5) Set Vx to Vx - Vy, set VF to carry.
     fn opcode_sub(&mut self) {
         let vx = self.v_reg[self.opcode.x()];
         let vy = self.v_reg[self.opcode.y()];
 
-        if vx > vy {
-            // No borrow, VF set to 1
+        let (result, overflow) = vx.overflowing_sub(vy);
+
+        if overflow {
             self.v_reg[0xF] = 1;
-            self.v_reg[self.opcode.x()] = vx - vy;
         } else {
-            // Borrow occurs, VF set to 0
             self.v_reg[0xF] = 0;
-            self.v_reg[self.opcode.x()] = 0;
         }
+
+        self.v_reg[self.opcode.x()] = result;
+        self.pc += 2;
     }
 
     /// (8xy6) Right shift.
@@ -320,22 +332,24 @@ impl Chip8 {
 
         self.v_reg[0xF] = lsb;
         self.v_reg[self.opcode.x()] >>= 1;
+        self.pc += 2;
     }
 
-    /// (8xy7) Subtract Vx from Vy, set VF to carry
+    /// (8xy7) Set Vx to Vy - Vx, set VF to carry
     fn opcode_subn(&mut self) {
         let vx = self.v_reg[self.opcode.x()];
         let vy = self.v_reg[self.opcode.y()];
 
-        if vy > vx {
-            // No borrow, VF set to 1
+        let (result, overflow) = vy.overflowing_sub(vx);
+
+        if overflow {
             self.v_reg[0xF] = 1;
-            self.v_reg[self.opcode.x()] = vy - vx;
         } else {
-            // Borrow occurs, VF set to 0
             self.v_reg[0xF] = 0;
-            self.v_reg[self.opcode.x()] = 0;
         }
+
+        self.v_reg[self.opcode.x()] = result;
+        self.pc += 2;
     }
 
     /// (8xyE) Left shift.
@@ -345,6 +359,7 @@ impl Chip8 {
 
         self.v_reg[0xF] = msb;
         self.v_reg[self.opcode.x()] <<= 1;
+        self.pc += 2;
     }
 
     /// Skip next instruction if Vx != Vy
@@ -355,11 +370,13 @@ impl Chip8 {
         if vx != vy {
             self.pc += 2;
         }
+        self.pc += 2;
     }
 
     /// Set address register to NNN
     fn opcode_ld(&mut self) {
         self.i_addr = self.opcode.nnn();
+        self.pc += 2;
     }
 
     /// Jump to NNN + V0
@@ -375,6 +392,7 @@ impl Chip8 {
         let n: u8 = rng.gen(); // Generates a random u8 number
 
         self.v_reg[self.opcode.x()] = n & self.opcode.kk();
+        self.pc += 2;
     }
 
     /// (Dxyn) Draw an n-byte sprite at (Vx, Vy) from memory location I
@@ -405,7 +423,7 @@ impl Chip8 {
                 };
 
                 // The pixel we are about to write to
-                let mut target_pixel_index = starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
+                let mut target_pixel_index = starting_pixel.wrapping_add((row_number * DISPLAY_WIDTH) + pixel_number);
 
                 // Check collision
                 if self.get_pixel(target_pixel_index) == 1 {
@@ -421,6 +439,7 @@ impl Chip8 {
                 self.xor_pixel(target_pixel_index, sprite_pixel);
             }
         }
+        self.pc += 2;
     }
 
     /// (Ex9E) Skip next instruction if key with value Vx pressed.
@@ -428,6 +447,7 @@ impl Chip8 {
         if self.keypad[self.opcode.x()] == 1 {
             self.pc += 2;
         }
+        self.pc += 2;
     }
 
     /// (ExA1) Skip next instruction if key with value Vx not pressed.
@@ -435,29 +455,36 @@ impl Chip8 {
         if self.keypad[self.opcode.x()] == 0 {
             self.pc += 2;
         }
+        self.pc += 2;
     }
 
     /// (Fx07) Set Vx to DT.
     fn opcode_get_dt(&mut self) {
         self.v_reg[self.opcode.x()] = self.delay_timer;
+        self.pc += 2;
     }
 
     /// (Fx0A) Wait for a key press, store key in Vx.
-    fn opcode_waitkey(&mut self) {}
+    fn opcode_waitkey(&mut self) {
+        self.pc += 2;
+    }
 
     /// (Fx15) Set delay timer to Vx.
     fn opcode_set_dt(&mut self) {
         self.delay_timer = self.v_reg[self.opcode.x()];
+        self.pc += 2;
     }
 
     /// (Fx18) Set sound timer to Vx.
     fn opcode_set_st(&mut self) {
         self.sound_timer = self.v_reg[self.opcode.x()];
+        self.pc += 2;
     }
 
     /// (Fx1E) I = I + Vx.
     fn opcode_add_i(&mut self) {
         self.i_addr += self.v_reg[self.opcode.x()] as usize;
+        self.pc += 2;
     }
 
     // (Fx29) I = location of sprite in memory for digit Vx
@@ -469,6 +496,7 @@ impl Chip8 {
         // get the address.
         // 0 * 5 = 0. 1 * 5 = 5. 0xF * 5 = 75 etc.
         self.i_addr = FONTSET_START + ((vx * 5) as usize);
+        self.pc += 2;
     }
 
     /// (Fx33) Store BCD representation of Vx in I, I+1, I+2
@@ -486,15 +514,17 @@ impl Chip8 {
         self.memory[self.i_addr + 0] = hundreds;
         self.memory[self.i_addr + 1] = tens;
         self.memory[self.i_addr + 2] = ones;
+        self.pc += 2;
     }
 
-    /// (Fx55) Store V0 through Vx in memory at I.
+    /// (Fx55) Store [V0..Vx] at I.
     fn opcode_store_vx(&mut self) {
         let x = self.opcode.x();
 
-        for i in 0..x + 1 {
+        for i in 0..=x {
             self.memory[self.i_addr + i] = self.v_reg[i];
         }
+        self.pc += 2;
     }
 
     /// (Fx65) Read memory into V0 through Vx from I.
@@ -504,6 +534,7 @@ impl Chip8 {
         for i in 0..x + 1 {
             self.v_reg[i] = self.memory[self.i_addr + i];
         }
+        self.pc += 2;
     }
 
     // ----- End of opcodes ----- //
@@ -650,7 +681,7 @@ mod tests {
         c.opcode = 0x00EE;
         c.decode_opcode();
 
-        assert_eq!(c.pc, c.stack[0]);
+        assert_eq!(c.pc, c.stack[0] + 2);
         assert_eq!(c.sp, 0);
     }
 
@@ -662,7 +693,7 @@ mod tests {
         c.opcode = 0x1666;
         c.decode_opcode();
 
-        assert_eq!(c.pc, 0x664);
+        assert_eq!(c.pc, 0x666);
     }
 
     #[test]
@@ -777,7 +808,7 @@ mod tests {
 
         c.decode_opcode();
 
-        assert_eq!(c.pc, old_pc + 2);
+        assert_eq!(c.pc, old_pc + 4);
     }
 
     #[test]
@@ -792,7 +823,7 @@ mod tests {
 
         c.decode_opcode();
 
-        assert_eq!(c.pc, old_pc + 2);
+        assert_eq!(c.pc, old_pc + 4);
     }
 
     #[test]

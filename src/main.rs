@@ -86,6 +86,6 @@ fn main() {
         canvas.present();
 
         // TODO: sync at known pace. vsync is too fast
-        thread::sleep(time::Duration::from_millis(10));
+        // thread::sleep(time::Duration::from_millis(10));
     }
 }
