@@ -132,25 +132,41 @@ impl Chip8 {
             .unwrap();
     }
 
-    /// Set logical pixel to value.
-    pub fn set_pixel(&mut self, index: usize, value: u8) {
-        if value == 1 {
-            self.display[(index * 3) + 0] = 255;
-            self.display[(index * 3) + 1] = 255;
-            self.display[(index * 3) + 2] = 255;
-        } else {
-            self.display[(index * 3) + 0] = 0;
-            self.display[(index * 3) + 1] = 0;
-            self.display[(index * 3) + 2] = 0;
+    /// Get the state of a pixel (On/Off).
+    pub fn get_pixel(&self, pixel_index: usize) -> u8 {
+        let triplet_index = pixel_index * 3;
+        // We only check the first byte since they should all be equal
+        let red = self.display[triplet_index];
+
+        match red {
+            255 => 1,
+            0 => 0,
+            _ => panic!("red value wasn't 255 or 0: {}", red),
         }
     }
 
-    /// Get logical pixel.
-    pub fn get_pixel(&mut self, index: usize) -> u8 {
-        if self.display[(index * 3)] == 255 {
-            1
+    /// Set the state of a pixel (On/Off).
+    pub fn set_pixel(&mut self, pixel_index: usize, state: u8) {
+        let triplet_index = pixel_index * 3;
+
+        let pixel_value = match state {
+            1 => 255,
+            0 => 0,
+            _ => panic!("bad pixel state {}", state),
+        };
+
+        self.display[triplet_index + 0] = pixel_value;
+        self.display[triplet_index + 1] = pixel_value;
+        self.display[triplet_index + 2] = pixel_value;
+    }
+
+    /// Set the state of a pixel (On/Off) with XOR.
+    pub fn xor_pixel(&mut self, pixel_index: usize, state: u8) {
+        // Emulating XOR here, if pixels match turn off, else turn on
+        if self.get_pixel(pixel_index) == state {
+            self.set_pixel(pixel_index, 0);
         } else {
-            0
+            self.set_pixel(pixel_index, 1);
         }
     }
 
@@ -371,28 +387,24 @@ impl Chip8 {
                 let sprite_pixel = if (sprite_row & (0x80 >> pixel_number)) == 0 {
                     0
                 } else {
-                    255
+                    1
                 };
 
                 // The pixel we are about to write to
-                let mut target_pixelb = starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
+                let mut target_pixel_index = starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
 
                 // Check collision
-                if self.get_pixel(target_pixelb) == 1 {
+                if self.get_pixel(target_pixel_index) == 1 {
                     self.v_reg[0xF] = 1;
                 }
 
                 // Handle overflow by wrapping to the start of the row
                 if ((starting_pixel % DISPLAY_WIDTH) + pixel_number) >= DISPLAY_WIDTH {
-                    target_pixelb -= DISPLAY_WIDTH;
+                    target_pixel_index -= DISPLAY_WIDTH;
                 }
 
                 // Set the pixel with XOR
-                if self.get_pixel(target_pixelb) == sprite_pixel {
-                    self.set_pixel(target_pixelb, 0);    
-                } else {
-                    self.set_pixel(target_pixelb, 1);
-                }
+                self.xor_pixel(target_pixel_index, sprite_pixel);
             }
         }
     }
