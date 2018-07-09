@@ -14,7 +14,8 @@ const FONTSET_START: usize = 0x000; // Where the fontset starts
 
 pub const DISPLAY_WIDTH: usize = 64;
 pub const DISPLAY_HEIGHT: usize = 32;
-pub const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH;
+/// Using RGB24 pixel format so each pixel is 3 bytes
+pub const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH * 3;
 
 #[derive(Debug)]
 struct Opcode(u16);
@@ -129,6 +130,28 @@ impl Chip8 {
         // Reads up to memory (4 KB) bytes
         file.read(&mut self.memory[(PROGRAM_ROM_START as usize)..])
             .unwrap();
+    }
+
+    /// Set logical pixel to value.
+    pub fn set_pixel(&mut self, index: usize, value: u8) {
+        if value == 1 {
+            self.display[(index * 3) + 0] = 255;
+            self.display[(index * 3) + 1] = 255;
+            self.display[(index * 3) + 2] = 255;
+        } else {
+            self.display[(index * 3) + 0] = 0;
+            self.display[(index * 3) + 1] = 0;
+            self.display[(index * 3) + 2] = 0;
+        }
+    }
+
+    /// Get logical pixel.
+    pub fn get_pixel(&mut self, index: usize) -> u8 {
+        if self.display[(index * 3)] == 255 {
+            1
+        } else {
+            0
+        }
     }
 
     /// Emulate a CPU cycle.
@@ -348,24 +371,28 @@ impl Chip8 {
                 let sprite_pixel = if (sprite_row & (0x80 >> pixel_number)) == 0 {
                     0
                 } else {
-                    1
+                    255
                 };
 
                 // The pixel we are about to write to
-                let mut target_pixel = starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
+                let mut target_pixelb = starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
 
                 // Check collision
-                if self.display[target_pixel] == 1 {
+                if self.get_pixel(target_pixelb) == 1 {
                     self.v_reg[0xF] = 1;
                 }
 
                 // Handle overflow by wrapping to the start of the row
-                if (starting_pixel + pixel_number) >= DISPLAY_WIDTH {
-                    target_pixel -= DISPLAY_WIDTH;
+                if ((starting_pixel % DISPLAY_WIDTH) + pixel_number) >= DISPLAY_WIDTH {
+                    target_pixelb -= DISPLAY_WIDTH;
                 }
 
                 // Set the pixel with XOR
-                self.display[target_pixel] ^= sprite_pixel;
+                if self.get_pixel(target_pixelb) == sprite_pixel {
+                    self.set_pixel(target_pixelb, 0);    
+                } else {
+                    self.set_pixel(target_pixelb, 1);
+                }
             }
         }
     }
@@ -697,19 +724,19 @@ mod tests {
         c.memory[c.i_addr + 1] = 0xC0;
 
         // Turn the last pixel on row 0 on so we can test that it's turned off
-        c.display[DISPLAY_WIDTH - 1] = 1;
+        c.set_pixel(DISPLAY_WIDTH - 1, 1);
 
         // Draw 2-byte sprite at V0 and V1 (set above)
         c.opcode = Opcode(0xD012);
 
         c.decode_opcode();
 
-        assert_eq!(c.display[DISPLAY_WIDTH - 1], 0, "pixel wasn't zeroed");
-        assert_eq!(c.display[(DISPLAY_WIDTH * 2) - 1], 1);
+        assert_eq!(c.get_pixel(DISPLAY_WIDTH - 1), 0, "pixel wasn't zeroed");
+        assert_eq!(c.get_pixel(DISPLAY_WIDTH * 2 - 1), 1);
         assert_eq!(c.v_reg[0xF], 1, "carry bit should be set by collision");
         // wrapping
-        assert_eq!(c.display[0], 1, "sprite should wrap");
-        assert_eq!(c.display[DISPLAY_WIDTH], 1, "sprite should wrap ");
+        assert_eq!(c.get_pixel(0), 1, "sprite should wrap");
+        assert_eq!(c.get_pixel(DISPLAY_WIDTH), 1, "sprite should wrap ");
     }
 
     #[test]
