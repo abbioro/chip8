@@ -424,9 +424,9 @@ impl Chip8 {
                 // The pixel we are about to write to
                 let mut target_pixel_index = starting_pixel.wrapping_add((row_number * DISPLAY_WIDTH) + pixel_number);
 
-                // Handle paddle moving off screen
+                // Handle vertical wrapping
                 if target_pixel_index > 2047 {
-                    target_pixel_index = 2047;
+                    target_pixel_index -= DISPLAY_WIDTH * 31;
                 }
 
                 // Handle overflow by wrapping to the start of the row
@@ -829,7 +829,7 @@ mod tests {
         c.keypad[0xA] = 0; // A is not pressed
         c.v_reg[0xC] = 0xA;
         c.opcode = 0xECA1;
-        
+
         let old_pc = c.pc;
 
         c.decode_opcode();
