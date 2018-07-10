@@ -811,7 +811,8 @@ mod tests {
         c.initialize();
 
         c.keypad[0xA] = 1; // A is pressed
-        c.opcode = 0xEA9E; // check if a is pressed
+        c.v_reg[0xC] = 0xA;
+        c.opcode = 0xEC9E;
 
         let old_pc = c.pc;
 
@@ -826,8 +827,9 @@ mod tests {
         c.initialize();
 
         c.keypad[0xA] = 0; // A is not pressed
-        c.opcode = 0xEAA1; // check if a is NOT pressed
-
+        c.v_reg[0xC] = 0xA;
+        c.opcode = 0xECA1;
+        
         let old_pc = c.pc;
 
         c.decode_opcode();
