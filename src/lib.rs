@@ -424,14 +424,19 @@ impl Chip8 {
                 // The pixel we are about to write to
                 let mut target_pixel_index = starting_pixel.wrapping_add((row_number * DISPLAY_WIDTH) + pixel_number);
 
-                // Check collision
-                if self.get_pixel(target_pixel_index) == 1 {
-                    self.v_reg[0xF] = 1;
+                // Handle paddle moving off screen
+                if target_pixel_index > 2047 {
+                    target_pixel_index = 2047;
                 }
 
                 // Handle overflow by wrapping to the start of the row
-                if ((starting_pixel % DISPLAY_WIDTH) + pixel_number) >= DISPLAY_WIDTH {
+                if (starting_pixel + pixel_number) >= DISPLAY_WIDTH {
                     target_pixel_index -= DISPLAY_WIDTH;
+                }
+
+                // Check collision
+                if self.get_pixel(target_pixel_index) == 1 {
+                    self.v_reg[0xF] = 1;
                 }
 
                 // Set the pixel with XOR
