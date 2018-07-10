@@ -13,6 +13,28 @@ use sdl2::render::*;
 use std::env;
 use std::{thread, time};
 
+
+use sdl2::audio::{AudioCallback, AudioSpecDesired};
+use std::time::Duration;
+
+struct SquareWave {
+    phase_inc: f32,
+    phase: f32,
+    volume: f32
+}
+
+impl AudioCallback for SquareWave {
+    type Channel = f32;
+
+    fn callback(&mut self, out: &mut [f32]) {
+        // Generate a square wave
+        for x in out.iter_mut() {
+            *x = if self.phase <= 0.5 { self.volume } else { -self.volume };
+            self.phase = (self.phase + self.phase_inc) % 1.0;
+        }
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let mut emulator = Chip8::new();
@@ -55,6 +77,27 @@ fn main() {
         )
         .unwrap();
 
+    // TODO cleanup audio code
+    let audio_subsystem = sdl_context.audio().unwrap();
+
+    let desired_spec = AudioSpecDesired {
+        freq: Some(44_100),
+        channels: Some(1),  // mono
+        samples: None       // default sample size
+    };
+
+    let device = audio_subsystem.open_playback(None, &desired_spec, |spec| {
+        // Show obtained AudioSpec
+        println!("{:?}", spec);
+
+        // initialize the audio callback
+        SquareWave {
+            phase_inc: 100.0 / spec.freq as f32,
+            phase: 0.0,
+            volume: 0.05
+        }
+    }).unwrap();
+
     // event pump... pumps out events I guess
     let mut event_pump = sdl_context.event_pump().unwrap();
 
@@ -74,6 +117,18 @@ fn main() {
         canvas.clear();
 
         emulator.emulate_cycle();
+
+        // if emulator.waitkey {
+        //     match event_pump.wait_even() {
+        //         Event::KeyDown { keycode: Some(key), .. } => emulator.
+        //     }
+        // }
+
+        if emulator.sound_timer > 0 {
+            device.resume();
+        } else {
+            device.pause();
+        }
 
         texture
             .update(None, &emulator.display, chip8::DISPLAY_WIDTH * 3)

@@ -611,7 +611,6 @@ impl Chip8 {
             self.delay_timer -= 1;
         }
         if self.sound_timer > 0 {
-            println!("BEEP!"); // TODO: replace with sound code
             self.sound_timer -= 1;
         }
     }
