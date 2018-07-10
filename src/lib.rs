@@ -443,7 +443,9 @@ impl Chip8 {
 
     /// (Ex9E) Skip next instruction if key with value Vx pressed.
     fn opcode_skp(&mut self) {
-        if self.keypad[self.opcode.x()] == 1 {
+        let vx = self.v_reg[self.opcode.x()];
+        
+        if self.keypad[vx as usize] == 1 {
             self.pc += 2;
         }
         self.pc += 2;
@@ -451,7 +453,9 @@ impl Chip8 {
 
     /// (ExA1) Skip next instruction if key with value Vx not pressed.
     fn opcode_sknp(&mut self) {
-        if self.keypad[self.opcode.x()] == 0 {
+        let vx = self.v_reg[self.opcode.x()];
+        
+        if self.keypad[vx as usize] == 0 {
             self.pc += 2;
         }
         self.pc += 2;
