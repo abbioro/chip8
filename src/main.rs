@@ -106,8 +106,8 @@ fn main() {
             match event {
                 Event::Quit { .. } => break 'main_loop,
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => break 'main_loop,
-                Event::KeyDown { keycode: Some(key), .. } => emulator.handle_keypress(key, true),
-                Event::KeyUp { keycode: Some(key), .. } => emulator.handle_keypress(key, false),
+                Event::KeyDown { keycode: Some(key), .. } => emulator.update_keypad(key, true),
+                Event::KeyUp { keycode: Some(key), .. } => emulator.update_keypad(key, false),
                 _ => {}
             }
         }

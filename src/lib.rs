@@ -156,31 +156,38 @@ impl Chip8 {
         }
     }
 
-    /// Update keypad to reflect keypress.
-    pub fn handle_keypress(&mut self, key: Keycode, state: bool) {
-        let state_bit = state as u8;
+    /// Maps an SDL2 Keycode to the hex digit it represents in CHIP-8.
+    pub fn keycode_to_hex(&self, key: Keycode) -> Option<u8> {
         match key {
-            Keycode::Num1 => self.keypad[0x1] = state_bit,
-            Keycode::Num2 => self.keypad[0x2] = state_bit,
-            Keycode::Num3 => self.keypad[0x3] = state_bit,
-            Keycode::Num4 => self.keypad[0xC] = state_bit,
-            
-            Keycode::Q => self.keypad[0x4] = state_bit,
-            Keycode::W => self.keypad[0x5] = state_bit,
-            Keycode::E => self.keypad[0x6] = state_bit,
-            Keycode::R => self.keypad[0xD] = state_bit,
+            // row 1
+            Keycode::Num1 => Some(0x1),
+            Keycode::Num2 => Some(0x2),
+            Keycode::Num3 => Some(0x3),
+            Keycode::Num4 => Some(0xC),
+            // row 2
+            Keycode::Q => Some(0x4),
+            Keycode::W => Some(0x5),
+            Keycode::E => Some(0x6),
+            Keycode::R => Some(0xD),
+            // row 3
+            Keycode::A => Some(0x7),
+            Keycode::S => Some(0x8),
+            Keycode::D => Some(0x9),
+            Keycode::F => Some(0xE),
+            // row 4
+            Keycode::Z => Some(0xA),
+            Keycode::X => Some(0x0),
+            Keycode::C => Some(0xB),
+            Keycode::V => Some(0xF),
+            // ignore any other key
+            _ => None,
+        }
+    }
 
-            Keycode::A => self.keypad[0x7] = state_bit,
-            Keycode::S => self.keypad[0x8] = state_bit,
-            Keycode::D => self.keypad[0x9] = state_bit,
-            Keycode::F => self.keypad[0xE] = state_bit,
-            
-            Keycode::Z => self.keypad[0xA] = state_bit,
-            Keycode::X => self.keypad[0x0] = state_bit,
-            Keycode::C => self.keypad[0xB] = state_bit,
-            Keycode::V => self.keypad[0xF] = state_bit,
-            
-            _ => {}
+    /// Update the keypad to reflect a keypress.
+    pub fn update_keypad(&mut self, key: sdl2::keyboard::Keycode, key_down: bool) {
+        if let Some(hex) = self.keycode_to_hex(key) {
+            self.keypad[hex as usize] = key_down as u8;
         }
     }
 
@@ -917,6 +924,19 @@ mod tests {
         assert_eq!(c.v_reg[0x0], 0xCC);
         assert_eq!(c.v_reg[0x1], 0xCD);
         assert_eq!(c.v_reg[0x2], 0xDD);
+    }
+
+    #[test]
+    fn update_keypad() {
+        let mut c = Chip8::new();
+        c.initialize();
+
+        c.update_keypad(Keycode::A, true);
+        c.update_keypad(Keycode::F, true);
+        c.update_keypad(Keycode::F, false);
+
+        assert_eq!(c.keypad[0x7], 1);
+        assert_eq!(c.keypad[0xE], 0);
     }
 
 }
