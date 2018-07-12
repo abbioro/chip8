@@ -37,9 +37,8 @@ impl AudioCallback for SquareWave {
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    let mut emulator = Chip8::new();
+    let mut emulator = CPU::new();
 
-    emulator.initialize();
     emulator.load_rom(&args[1]);
 
     // Initialize and SDL context and video subsystem

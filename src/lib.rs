@@ -11,45 +11,17 @@ use sdl2::keyboard::Keycode;
 // necessary, but that would mean casts everywhere. Here's hoping they add
 // some proper numeric conversions in the future.
 
-const PROGRAM_ROM_START: usize = 0x200; // Programs start at 0x200
-const FONTSET_START: usize = 0x000; // Where the fontset starts
+/// Starting address for program ROMs.
+const PROGRAM_ROM_START: usize = 0x200;
+/// Starting address for the fontset.
+const FONTSET_START: usize = 0x000;
 
 pub const DISPLAY_WIDTH: usize = 64;
 pub const DISPLAY_HEIGHT: usize = 32;
-/// The true size of the display in memory (RGB24 pixel format).
+/// The true size of the display in memory (RGB24 pixel format). 3 times as big
+/// as the emulated display because each pixel has to be represented by an RGB
+/// triplet.
 pub const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH * 3;
-
-/// Methods to decode opcode arguments.
-trait Opcode {
-    fn x(&self) -> usize;
-    fn y(&self) -> usize;
-    fn n(&self) -> usize;
-    fn kk(&self) -> u8;
-    fn nnn(&self) -> usize;
-}
-
-impl Opcode for u16 {
-    fn x(&self) -> usize { ((self & 0x0F00) >> 8) as usize }
-    fn y(&self) -> usize { ((self & 0x00F0) >> 4) as usize }
-    fn n(&self) -> usize { (self & 0x000F) as usize }
-    fn kk(&self) -> u8 { (self & 0x00FF) as u8 }
-    fn nnn(&self) -> usize { (self & 0x0FFF) as usize }
-}
-
-#[allow(dead_code)]
-pub struct Chip8 {
-    pub opcode: u16, // current opcode
-    pub memory: [u8; 4096],
-    pub v_reg: [u8; 16], // registers
-    pub i_addr: usize,   // u16, address register
-    pub pc: usize,       // u16, program counter
-    pub display: [u8; DISPLAY_SIZE],
-    pub stack: [usize; 16], // u16
-    pub sp: usize,          // u8, stack pointer
-    pub delay_timer: u8,
-    pub sound_timer: u8,
-    pub keypad: [u8; 16],
-}
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const CHIP8_FONTSET: [u8; 80] = [
@@ -71,42 +43,64 @@ const CHIP8_FONTSET: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0x80  // F
 ];
 
-impl Chip8 {
-    pub fn new() -> Chip8 {
-        Chip8 {
+/// Methods to extract parts of an opcode.
+trait Opcode {
+    fn x(&self) -> usize;
+    fn y(&self) -> usize;
+    fn n(&self) -> usize;
+    fn kk(&self) -> u8;
+    fn nnn(&self) -> usize;
+}
+
+impl Opcode for u16 {
+    fn x(&self) -> usize { ((self & 0x0F00) >> 8) as usize }
+    fn y(&self) -> usize { ((self & 0x00F0) >> 4) as usize }
+    fn n(&self) -> usize { (self & 0x000F) as usize }
+    fn kk(&self) -> u8 { (self & 0x00FF) as u8 }
+    fn nnn(&self) -> usize { (self & 0x0FFF) as usize }
+}
+
+/// Main CHIP-8 CPU data structure.
+pub struct CPU {
+    pub opcode: u16, // current opcode
+    pub memory: [u8; 4096],
+    pub v_reg: [u8; 16], // registers
+    pub i_addr: usize,   // u16, address register
+    pub pc: usize,       // u16, program counter
+    pub display: [u8; DISPLAY_SIZE],
+    pub stack: [usize; 16], // u16
+    pub sp: usize,          // u8, stack pointer
+    pub delay_timer: u8,
+    pub sound_timer: u8,
+    pub keypad: [u8; 16],
+}
+
+impl CPU {
+    pub fn new() -> CPU {
+        let mut cpu = CPU {
             opcode: 0,
             memory: [0; 4096],
             v_reg: [0; 16],
             i_addr: 0,
-            pc: 0,
+            pc: PROGRAM_ROM_START,
             display: [0; DISPLAY_SIZE],
             stack: [0; 16],
             sp: 0,
             delay_timer: 0,
             sound_timer: 0,
             keypad: [0; 16],
-        }
+        };
+        // You shouldn't have to load the fontset in separately, assume it's
+        // loaded in when the machine starts.
+        cpu.load_fontset();
+        cpu
     }
 
-    /// Reset the emulator, load fontset into memory.
-    pub fn initialize(&mut self) {
-        // Reset everything
-        self.opcode = 0;
-        self.memory = [0; 4096];
-        self.v_reg = [0; 16];
-        self.i_addr = 0;
-        self.pc = PROGRAM_ROM_START;
-        self.display = [0; DISPLAY_SIZE];
-        self.stack = [0; 16];
-        self.sp = 0;
-        self.delay_timer = 0;
-        self.sound_timer = 0;
-        self.keypad = [0; 16];
-
-        // Load fontset into memory
+    /// Load fontset into memory.
+    fn load_fontset(&mut self) {
         for (i, byte) in CHIP8_FONTSET.iter().enumerate() {
             self.memory[FONTSET_START + i] = *byte;
-        }
+        };
     }
 
     /// Load a program ROM into memory.
@@ -629,9 +623,7 @@ mod tests {
 
     #[test]
     fn initialize() {
-        let mut c = Chip8::new();
-
-        c.initialize();
+        let mut c = CPU::new();
 
         assert_eq!(c.pc, 0x200);
 
@@ -644,9 +636,8 @@ mod tests {
 
     #[test]
     fn fetch_opcode() {
-        let mut c = Chip8::new();
+        let mut c = CPU::new();
 
-        c.initialize();
         c.memory[c.pc] = 0xD6;
         c.memory[c.pc + 1] = 0x3E;
         c.fetch_opcode();
@@ -656,9 +647,7 @@ mod tests {
 
     #[test]
     fn load_rom() {
-        let mut c = Chip8::new();
-
-        c.initialize();
+        let mut c = CPU::new();
         c.load_rom("PONG");
 
         // test first two bytes
@@ -674,8 +663,7 @@ mod tests {
 
     #[test]
     fn opcode_cls() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.display[0] = 1;
         c.display[DISPLAY_SIZE - 1] = 1;
@@ -688,8 +676,7 @@ mod tests {
 
     #[test]
     fn opcode_ret() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.stack[0] = 21;
         c.sp = 1;
@@ -702,8 +689,7 @@ mod tests {
 
     #[test]
     fn opcode_jp() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.opcode = 0x1666;
         c.decode_opcode();
@@ -713,8 +699,7 @@ mod tests {
 
     #[test]
     fn opcode_call() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.opcode = 0x2666;
         c.pc = 0x51;
@@ -783,9 +768,8 @@ mod tests {
 
     #[test]
     fn opcode_drw() {
-        let mut c = Chip8::new();
-        c.initialize();
-
+        let mut c = CPU::new();
+        
         // coordinates: (63, 0) i.e. upper right corner of screen
         c.v_reg[0] = 63;
         c.v_reg[1] = 0;
@@ -813,9 +797,8 @@ mod tests {
 
     #[test]
     fn opcode_skp() {
-        let mut c = Chip8::new();
-        c.initialize();
-
+        let mut c = CPU::new();
+        
         c.keypad[0xA] = 1; // A is pressed
         c.v_reg[0xC] = 0xA;
         c.opcode = 0xEC9E;
@@ -829,8 +812,7 @@ mod tests {
 
     #[test]
     fn opcode_sknp() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.keypad[0xA] = 0; // A is not pressed
         c.v_reg[0xC] = 0xA;
@@ -860,8 +842,7 @@ mod tests {
 
     #[test]
     fn opcode_set_sprite() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.v_reg[0xA] = 0xA;
         c.opcode = 0xFA29; // A = get the sprite for 0xA
@@ -877,8 +858,7 @@ mod tests {
 
     #[test]
     fn opcode_bcd_vx() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.v_reg[0x2] = 235;
 
@@ -892,8 +872,7 @@ mod tests {
 
     #[test]
     fn opcode_store_vx() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.v_reg[0x0] = 0xAA;
         c.v_reg[0x1] = 0xAB;
@@ -910,8 +889,7 @@ mod tests {
 
     #[test]
     fn opcode_read_vx() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.i_addr = 0x944;
         c.memory[c.i_addr + 0] = 0xCC;
@@ -928,8 +906,7 @@ mod tests {
 
     #[test]
     fn update_keypad() {
-        let mut c = Chip8::new();
-        c.initialize();
+        let mut c = CPU::new();
 
         c.update_keypad(Keycode::A, true);
         c.update_keypad(Keycode::F, true);
