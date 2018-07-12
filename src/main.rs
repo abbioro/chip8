@@ -7,15 +7,10 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum::*;
 use sdl2::pixels::*;
-// use sdl2::rect::*;
 use sdl2::render::*;
+use sdl2::audio::{AudioCallback, AudioSpecDesired};
 
 use std::env;
-use std::{thread, time};
-
-
-use sdl2::audio::{AudioCallback, AudioSpecDesired};
-use std::time::Duration;
 
 struct SquareWave {
     phase_inc: f32,
@@ -61,8 +56,6 @@ fn main() {
         .unwrap();
 
     canvas.set_logical_size(64, 32).unwrap();
-    // canvas.set_draw_color(Color::RGB(0, 0, 0)); // screen starts black
-    // canvas.clear();
 
     // let texture = canvas.create_texture();
     let texture_creator = canvas.texture_creator();
@@ -116,13 +109,7 @@ fn main() {
         canvas.clear();
 
         emulator.emulate_cycle();
-
-        // if emulator.waitkey {
-        //     match event_pump.wait_even() {
-        //         Event::KeyDown { keycode: Some(key), .. } => emulator.
-        //     }
-        // }
-
+        
         if emulator.sound_timer > 0 {
             device.resume();
         } else {

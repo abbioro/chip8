@@ -4,12 +4,8 @@ extern crate sdl2;
 use rand::prelude::*;
 use std::fs::File;
 use std::io::Read;
-use sdl2::keyboard::Keycode;
 
-// Rust *really* wants you to index everything with usize only, so you'll see
-// me define anything that is used as an index as usize. I could cast as
-// necessary, but that would mean casts everywhere. Here's hoping they add
-// some proper numeric conversions in the future.
+use sdl2::keyboard::Keycode;
 
 /// Starting address for program ROMs.
 const PROGRAM_ROM_START: usize = 0x200;
@@ -203,9 +199,6 @@ impl CPU {
         // Merge the 2-byte instruction at the program counter
         self.opcode = (byte1 << 8) | byte2;
     }
-
-    // Vx = Register X
-    // kk = byte
 
     /// (00E0) Clear the display.
     fn opcode_cls(&mut self) {
@@ -623,7 +616,7 @@ mod tests {
 
     #[test]
     fn initialize() {
-        let mut c = CPU::new();
+        let c = CPU::new();
 
         assert_eq!(c.pc, 0x200);
 
