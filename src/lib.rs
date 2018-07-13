@@ -1,7 +1,7 @@
 extern crate rand;
 extern crate sdl2;
 
-use rand::prelude::*;
+use rand::prelude::{thread_rng, Rng};
 use std::fs::File;
 use std::io::Read;
 
@@ -49,11 +49,21 @@ trait Opcode {
 }
 
 impl Opcode for u16 {
-    fn x(&self) -> usize { ((self & 0x0F00) >> 8) as usize }
-    fn y(&self) -> usize { ((self & 0x00F0) >> 4) as usize }
-    fn n(&self) -> usize { (self & 0x000F) as usize }
-    fn kk(&self) -> u8 { (self & 0x00FF) as u8 }
-    fn nnn(&self) -> usize { (self & 0x0FFF) as usize }
+    fn x(&self) -> usize {
+        ((self & 0x0F00) >> 8) as usize
+    }
+    fn y(&self) -> usize {
+        ((self & 0x00F0) >> 4) as usize
+    }
+    fn n(&self) -> usize {
+        (self & 0x000F) as usize
+    }
+    fn kk(&self) -> u8 {
+        (self & 0x00FF) as u8
+    }
+    fn nnn(&self) -> usize {
+        (self & 0x0FFF) as usize
+    }
 }
 
 /// Main CHIP-8 CPU data structure.
@@ -96,7 +106,7 @@ impl CPU {
     fn load_fontset(&mut self) {
         for (i, byte) in CHIP8_FONTSET.iter().enumerate() {
             self.memory[FONTSET_START + i] = *byte;
-        };
+        }
     }
 
     /// Load a program ROM into memory.
@@ -416,7 +426,8 @@ impl CPU {
                 };
 
                 // The pixel we are about to write to
-                let mut target_pixel_index = starting_pixel.wrapping_add((row_number * DISPLAY_WIDTH) + pixel_number);
+                let mut target_pixel_index =
+                    starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
 
                 // Handle vertical wrapping
                 if target_pixel_index > 2047 {
@@ -443,7 +454,7 @@ impl CPU {
     /// (Ex9E) Skip next instruction if key with value Vx pressed.
     fn opcode_skp(&mut self) {
         let vx = self.v_reg[self.opcode.x()];
-        
+
         if self.keypad[vx as usize] == 1 {
             self.pc += 2;
         }
@@ -453,7 +464,7 @@ impl CPU {
     /// (ExA1) Skip next instruction if key with value Vx not pressed.
     fn opcode_sknp(&mut self) {
         let vx = self.v_reg[self.opcode.x()];
-        
+
         if self.keypad[vx as usize] == 0 {
             self.pc += 2;
         }
@@ -762,7 +773,7 @@ mod tests {
     #[test]
     fn opcode_drw() {
         let mut c = CPU::new();
-        
+
         // coordinates: (63, 0) i.e. upper right corner of screen
         c.v_reg[0] = 63;
         c.v_reg[1] = 0;
@@ -791,7 +802,7 @@ mod tests {
     #[test]
     fn opcode_skp() {
         let mut c = CPU::new();
-        
+
         c.keypad[0xA] = 1; // A is pressed
         c.v_reg[0xC] = 0xA;
         c.opcode = 0xEC9E;
