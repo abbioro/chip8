@@ -199,12 +199,11 @@ impl CPU {
         self.update_timers();
     }
 
+    /// Fetch the next opcode by merging the next two bytes at the PC.
     fn fetch_opcode(&mut self) {
-        let pc = self.pc as usize;
-
         // Bytes are cast into u16 so we can merge them next
-        let byte1 = self.memory[pc] as u16;
-        let byte2 = self.memory[pc + 1] as u16;
+        let byte1 = self.memory[self.pc] as u16;
+        let byte2 = self.memory[self.pc + 1] as u16;
 
         // Merge the 2-byte instruction at the program counter
         self.opcode = (byte1 << 8) | byte2;
