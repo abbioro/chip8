@@ -365,7 +365,7 @@ impl CPU {
         self.pc += 2;
     }
 
-    /// Skip next instruction if Vx != Vy
+    /// (4xnn) Skip next instruction if Vx != Vy.
     fn opcode_sne(&mut self) {
         let vx = self.v_reg[self.opcode.x()];
         let vy = self.v_reg[self.opcode.y()];
@@ -376,16 +376,15 @@ impl CPU {
         self.pc += 2;
     }
 
-    /// Set address register to NNN
+    /// (Annn) I = nnn.
     fn opcode_ld(&mut self) {
         self.i_addr = self.opcode.nnn();
         self.pc += 2;
     }
 
-    /// Jump to NNN + V0
+    /// (Bnnn) Jump to NNN + V0.
     fn opcode_jp_v0(&mut self) {
-        self.pc = self.opcode.nnn();
-        self.pc += self.v_reg[0] as usize;
+        self.pc = self.opcode.nnn() + (self.v_reg[0] as usize);
     }
 
     /// Generate random byte AND kk, store in Vx
@@ -664,7 +663,7 @@ mod tests {
 
     // opcode tests
 
-    #[test]
+    #[test] // 00e0
     fn opcode_cls() {
         let mut c = CPU::new();
 
@@ -677,7 +676,7 @@ mod tests {
         assert_eq!(c.display[DISPLAY_SIZE - 1], 0);
     }
 
-    #[test]
+    #[test] // 00ee
     fn opcode_ret() {
         let mut c = CPU::new();
 
@@ -690,7 +689,7 @@ mod tests {
         assert_eq!(c.sp, 0);
     }
 
-    #[test]
+    #[test] // 1nnn
     fn opcode_jp() {
         let mut c = CPU::new();
 
@@ -700,7 +699,7 @@ mod tests {
         assert_eq!(c.pc, 0x666);
     }
 
-    #[test]
+    #[test] // 2nnn
     fn opcode_call() {
         let mut c = CPU::new();
 
@@ -715,23 +714,74 @@ mod tests {
         assert_eq!(c.pc, 0x666);
     }
 
-    #[test]
-    fn opcode_se_byte() {}
+    #[test] // (3xkk)
+    fn opcode_se_byte() {
+        let mut c = CPU::new();
+
+        let old_pc = c.pc;
+        c.opcode = 0x3A27;
+        c.v_reg[0xA] = 0x27;
+        c.decode_opcode();
+
+        assert_eq!(c.pc, old_pc + 4);
+    }
+
+    #[test] // 4xkk
+    fn opcode_sne_byte() {
+        let mut c = CPU::new();
+
+        let old_pc = c.pc;
+        c.opcode = 0x4A27;
+        c.v_reg[0xA] = 0x23;
+        c.decode_opcode();
+
+        assert_eq!(c.pc, old_pc + 4);
+    }
+
+    #[test] // 5xy0
+    fn opcode_se_vx() {
+        let mut c = CPU::new();
+
+        let old_pc = c.pc;
+        c.opcode = 0x5AE0;
+        c.v_reg[0xA] = 0x27;
+        c.v_reg[0xE] = 0x27;
+        c.decode_opcode();
+
+        assert_eq!(c.pc, old_pc + 4);
+    }
 
     #[test]
-    fn opcode_sne_byte() {}
+    fn opcode_ld_byte() {
+        let mut c = CPU::new();
+
+        c.opcode = 0x6A73;
+        c.decode_opcode();
+
+        assert_eq!(c.v_reg[0xA], 0x73);
+    }
 
     #[test]
-    fn opcode_se_vx() {}
+    fn opcode_add_byte() {
+        let mut c = CPU::new();
+
+        c.v_reg[0xD] = 3;
+        c.opcode = 0x7D31;
+        c.decode_opcode();
+
+        assert_eq!(c.v_reg[0xD], 3 + 0x31);
+    }
 
     #[test]
-    fn opcode_ld_byte() {}
+    fn opcode_ld_vy() {
+        let mut c = CPU::new();
 
-    #[test]
-    fn opcode_add_byte() {}
+        c.v_reg[0xE] = 5;
+        c.opcode = 0x8AE0;
+        c.decode_opcode();
 
-    #[test]
-    fn opcode_ld_vy() {}
+        assert_eq!(c.v_reg[0xA], 5);
+    }
 
     #[test]
     fn opcode_or() {}
