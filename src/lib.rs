@@ -12,12 +12,15 @@ const PROGRAM_ROM_START: usize = 0x200;
 /// Starting address for the fontset.
 const FONTSET_START: usize = 0x000;
 
+// Emulated display sizes.
 pub const DISPLAY_WIDTH: usize = 64;
 pub const DISPLAY_HEIGHT: usize = 32;
-/// The true size of the display in memory (RGB24 pixel format). 3 times as big
-/// as the emulated display because each pixel has to be represented by an RGB
-/// triplet.
-pub const DISPLAY_SIZE: usize = DISPLAY_HEIGHT * DISPLAY_WIDTH * 3;
+pub const DISPLAY_SIZE: usize = DISPLAY_WIDTH * DISPLAY_HEIGHT;
+
+/// The size of the display buffer in memory (RGB24 pixel format). 3 times as
+/// big as the emulated display because each pixel has to be represented by an
+/// RGB triplet.
+pub const DISPLAY_BUFFER_SIZE: usize = DISPLAY_SIZE * 3;
 
 #[cfg_attr(rustfmt, rustfmt_skip)]
 const CHIP8_FONTSET: [u8; 80] = [
@@ -73,7 +76,7 @@ pub struct CPU {
     pub v_reg: [u8; 16], // registers
     pub i_addr: usize,   // u16, address register
     pub pc: usize,       // u16, program counter
-    pub display: [u8; DISPLAY_SIZE],
+    pub display: [u8; DISPLAY_BUFFER_SIZE],
     pub stack: [usize; 16], // u16
     pub sp: usize,          // u8, stack pointer
     pub delay_timer: u8,
@@ -89,7 +92,7 @@ impl CPU {
             v_reg: [0; 16],
             i_addr: 0,
             pc: PROGRAM_ROM_START,
-            display: [0; DISPLAY_SIZE],
+            display: [0; DISPLAY_BUFFER_SIZE],
             stack: [0; 16],
             sp: 0,
             delay_timer: 0,
@@ -211,7 +214,7 @@ impl CPU {
 
     /// (00E0) Clear the display.
     fn opcode_cls(&mut self) {
-        self.display = [0; DISPLAY_SIZE];
+        self.display = [0; DISPLAY_BUFFER_SIZE];
         self.pc += 2;
     }
 
@@ -668,12 +671,12 @@ mod tests {
         let mut c = CPU::new();
 
         c.display[0] = 1;
-        c.display[DISPLAY_SIZE - 1] = 1;
+        c.display[DISPLAY_BUFFER_SIZE - 1] = 1;
         c.opcode = 0x00E0;
         c.decode_opcode();
 
         assert_eq!(c.display[0], 0);
-        assert_eq!(c.display[DISPLAY_SIZE - 1], 0);
+        assert_eq!(c.display[DISPLAY_BUFFER_SIZE - 1], 0);
     }
 
     #[test] // 00ee
