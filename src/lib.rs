@@ -401,47 +401,43 @@ impl CPU {
 
     /// (Dxyn) Draw an n-byte sprite at (Vx, Vy) from memory location I
     fn opcode_drw(&mut self) {
-        let x = self.v_reg[self.opcode.x()] as usize;
-        let y = self.v_reg[self.opcode.y()] as usize;
-        let n = self.opcode.n(); // Sprite height
+        let xcoord = self.v_reg[self.opcode.x()] as usize;
+        let ycoord = self.v_reg[self.opcode.y()] as usize;
+        let sprite_height = self.opcode.n();
 
-        // The pixel where we start drawing from
-        let starting_pixel = x + (y * DISPLAY_WIDTH);
+        // The index of the pixel where we start drawing from.
+        let starting_pixel_index = xcoord + (ycoord * DISPLAY_WIDTH);
 
         // Set collision flag off, we'll turn it on if we get a collision
         // at any point while drawing.
         self.v_reg[0xF] = 0;
 
         // For each row in the sprite...
-        for row_number in 0..n as usize {
+        for row_number in 0..sprite_height as usize {
             // The actual pixels of this row for the sprite
             let sprite_row: u8 = self.memory[self.i_addr + row_number];
 
             // For each pixel in the sprite row...
             for pixel_number in 0..8 as usize {
-                // We use masking to go through each bit in the row
-                let sprite_pixel = if (sprite_row & (0x80 >> pixel_number)) == 0 {
-                    0
-                } else {
-                    1
-                };
+                // We use masking to go through each bit in the row.
+                let sprite_pixel = if (sprite_row & (0x80 >> pixel_number)) == 0 { 0 } else { 1 };
 
-                // The pixel we are about to write to
+                // The pixel we are about to write to.
                 let mut target_pixel_index =
-                    starting_pixel + (row_number * DISPLAY_WIDTH) + pixel_number;
+                    starting_pixel_index + (row_number * DISPLAY_WIDTH) + pixel_number;
 
-                // Handle vertical wrapping
-                if target_pixel_index > 2047 {
-                    target_pixel_index -= DISPLAY_WIDTH * 31;
-                }
-
-                // Handle overflow by wrapping to the start of the row
-                if (starting_pixel + pixel_number) >= DISPLAY_WIDTH {
+                // Handle overflow by wrapping to the start of the row.
+                if (starting_pixel_index + pixel_number) >= DISPLAY_WIDTH {
                     target_pixel_index -= DISPLAY_WIDTH;
                 }
 
-                // Check collision
-                if self.get_pixel(target_pixel_index) == 1 {
+                // Handle vertical wrapping.
+                if target_pixel_index >= DISPLAY_SIZE {
+                    target_pixel_index -= DISPLAY_SIZE;
+                }
+                
+                // Set collision flag if a collision happened.
+                if (sprite_pixel == 1) && (self.get_pixel(target_pixel_index) == 1) {
                     self.v_reg[0xF] = 1;
                 }
 
