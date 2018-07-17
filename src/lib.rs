@@ -649,7 +649,7 @@ mod tests {
     #[test]
     fn load_rom() {
         let mut c = CPU::new();
-        c.load_rom("PONG");
+        c.load_rom("games/PONG");
 
         // test first two bytes
         assert_eq!(c.memory[0x200], 0x6A);
