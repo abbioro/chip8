@@ -435,7 +435,7 @@ impl CPU {
                 if target_pixel_index >= DISPLAY_SIZE {
                     target_pixel_index -= DISPLAY_SIZE;
                 }
-                
+
                 // Set collision flag if a collision happened.
                 if (sprite_pixel == 1) && (self.get_pixel(target_pixel_index) == 1) {
                     self.v_reg[0xF] = 1;
@@ -555,7 +555,7 @@ impl CPU {
             0x0000 => match self.opcode & 0x00FF {
                 0x00E0 => self.opcode_cls(),
                 0x00EE => self.opcode_ret(),
-                _ => panic!("unknown opcode {}", self.opcode),
+                _ => panic!("unknown opcode 0x{:x}", self.opcode),
             },
 
             0x1000 => self.opcode_jp(),
@@ -576,7 +576,7 @@ impl CPU {
                 0x0006 => self.opcode_shr(),
                 0x0007 => self.opcode_subn(),
                 0x000E => self.opcode_shl(),
-                _ => panic!("unknown opcode {}", self.opcode),
+                _ => panic!("unknown opcode 0x{:x}", self.opcode),
             },
 
             0x9000 => self.opcode_sne(),
@@ -588,7 +588,7 @@ impl CPU {
             0xE000 => match self.opcode & 0xF0FF {
                 0xE09E => self.opcode_skp(),
                 0xE0A1 => self.opcode_sknp(),
-                _ => panic!("unknown opcode {}", self.opcode),
+                _ => panic!("unknown opcode 0x{:x}", self.opcode),
             },
 
             0xF000 => match self.opcode & 0xF0FF {
@@ -601,10 +601,10 @@ impl CPU {
                 0xF033 => self.opcode_bcd_vx(),
                 0xF055 => self.opcode_store_vx(),
                 0xF065 => self.opcode_read_vx(),
-                _ => panic!("unknown opcode {}", self.opcode),
+                _ => panic!("unknown opcode 0x{:x}", self.opcode),
             },
 
-            _ => panic!("unknown opcode {}", self.opcode),
+            _ => panic!("unknown opcode 0x{:x}", self.opcode),
         }
     }
 
