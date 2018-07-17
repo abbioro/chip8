@@ -2,6 +2,7 @@ extern crate chip8;
 extern crate sdl2;
 
 use chip8::CPU;
+use chip8::Opcode;
 
 use sdl2::audio::{AudioCallback, AudioSpecDesired};
 use sdl2::event::Event;
@@ -123,6 +124,33 @@ fn main() {
 
         emulator.emulate_cycle();
 
+        // waitkey
+        if emulator.waitkey {
+            'wait_loop: loop {
+                match event_pump.wait_event() {
+                    Event::Quit { .. } => break 'main_loop,
+                    Event::KeyDown {
+                        keycode: Some(Keycode::Escape),
+                        ..
+                    } => break 'main_loop,
+                    Event::KeyDown {
+                        keycode: Some(key), ..
+                    } => {
+                        match emulator.keycode_to_hex(key) {
+                            Some(hex) => {
+                                emulator.v_reg[emulator.opcode.x()] = hex;
+                                break 'wait_loop;
+                            },
+                            _ => (),
+                        }
+                    },
+                    _ => (),
+                }
+            }
+            emulator.waitkey = false;
+        }
+
+        // play audio
         if emulator.sound_timer > 0 {
             device.resume();
         } else {

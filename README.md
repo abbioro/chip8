@@ -1,5 +1,5 @@
 # chip8
 
-This is a CHIP-8 emulator written in Rust for me to become more comfortable with the language. It uses SDL2 for graphics and audio. PONG and TETRIS are fully playable and other games with variable success.
+This is a CHIP-8 emulator written in Rust as a project for me to become more comfortable with the language. It uses SDL2 for graphics and audio. All games should be playable.
 
-Run with `cargo run <rom name>`.
+Run with `cargo run <rom>`.

@@ -43,7 +43,7 @@ const CHIP8_FONTSET: [u8; 80] = [
 ];
 
 /// Methods to extract parts of an opcode.
-trait Opcode {
+pub trait Opcode {
     fn x(&self) -> usize;
     fn y(&self) -> usize;
     fn n(&self) -> usize;
@@ -82,6 +82,7 @@ pub struct CPU {
     pub delay_timer: u8,
     pub sound_timer: u8,
     pub keypad: [u8; 16],
+    pub waitkey: bool,
 }
 
 impl CPU {
@@ -98,6 +99,7 @@ impl CPU {
             delay_timer: 0,
             sound_timer: 0,
             keypad: [0; 16],
+            waitkey: false,
         };
         // You shouldn't have to load the fontset in separately, assume it's
         // loaded in when the machine starts.
@@ -476,7 +478,7 @@ impl CPU {
 
     /// (Fx0A) Wait for a key press, store key in Vx.
     fn opcode_waitkey(&mut self) {
-        // TODO: Implement blocking
+        self.waitkey = true;
         self.pc += 2;
     }
 
